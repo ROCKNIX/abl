@@ -21,9 +21,13 @@ This ABL has been tested and is compatible with:
 - **Charging while powered off**
 - **Boot override support**
   - Hold **Volume Up** during boot to force **Android** when the boot mode is Linux
-- **Direct GRUB boot**
+- **Faster bootup**
   - Boots straight into **GRUB**
   - No **U-Boot** required
+- **System Stats**
+  - Shows your SoC, RAM and Storage
+- **Internal install support**
+  - Allows booting Linux from internal storage
 
 ## Intended Use
 
