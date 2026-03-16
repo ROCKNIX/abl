@@ -15,6 +15,8 @@ jobs:
         with:
           repository: ROCKNIX/LinuxLoader
           ssh-key: ${{ secrets.LINUXLOADER_DEPLOY_KEY }}
+          fetch-depth: 0
+          fetch-tags: true
           submodules: recursive
           path: LinuxLoader
 
@@ -34,8 +36,48 @@ jobs:
             --transform 's|.*/|rocknix-abl-${{ github.ref_name }}/|' \
             LinuxLoader/Output/abl_signed-*.elf \
             LinuxLoader/Output/abl_signed-*.elf.sha256
+
+      - name: Get LinuxLoader commit and push tag
+        id: ll
+        run: |
+          cd LinuxLoader
+          echo "sha=$(git rev-parse HEAD)" >> $GITHUB_OUTPUT
+          git config user.name "github-actions"
+          git config user.email "github-actions@users.noreply.github.com"
+          git tag -f ${{ github.ref_name }}
+          git push git@github.com:ROCKNIX/LinuxLoader.git ${{ github.ref_name }} --force
+
+      - name: Generate changelog
+        id: changelog
+        run: |
+          cd LinuxLoader
+      
+          PREV_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")
+      
+          if [ -z "$PREV_TAG" ]; then
+            git log --pretty=format:"- %s (%h)" > ../changes.txt
+          else
+            git log $PREV_TAG..HEAD --pretty=format:"- %s (%h)" > ../changes.txt
+          fi
+
+      - name: Create release notes
+        run: |
+          echo "## ROCKNIX ABL ${{ github.ref_name }}" > release_notes.md
+          echo "" >> release_notes.md
+      
+          echo "### Changes" >> release_notes.md
+          cat changes.txt >> release_notes.md
+          echo "" >> release_notes.md
+      
+          echo "### Build info" >> release_notes.md
+          echo "- LinuxLoader commit: ${{ steps.ll.outputs.sha }}" >> release_notes.md
+          echo "- Build date: $(date -u +"%Y-%m-%d %H:%M UTC")" >> release_notes.md
+          echo "" >> release_notes.md
+
       - name: Release
         uses: softprops/action-gh-release@v2
         if: github.ref_type == 'tag'
         with:
-          files: rocknix-abl-${{ github.ref_name }}.tar.gz
+          body_path: release_notes.md
+          files: |
+            rocknix-abl-${{ github.ref_name }}.tar.gz

@@ -1,9 +1,23 @@
 #!/bin/bash
 set -euo pipefail
+REPO="ROCKNIX/abl"
+
+# ---- Version detection ----
+if [ $# -ge 1 ]; then
+  ABL_VERSION="$1"
+else
+  echo "Detecting latest release..."
+  ABL_VERSION="$(curl -s https://api.github.com/repos/${REPO}/releases/latest | grep '"tag_name"' | cut -d '"' -f4)"
+  ABL_VERSION="${ABL_VERSION#v}"
+fi
+
+echo "Using version: ${ABL_VERSION}"
 
 . /etc/os-release
 
-BASE_URL="https://github.com/ROCKNIX/abl/raw/refs/heads/master"
+BASE_URL="https://github.com/${REPO}/releases/download/v${ABL_VERSION}"
+DIR="rocknix-abl-v${ABL_VERSION}"
+ARCHIVE="${DIR}.tar.gz"
 ELF="abl_signed-${HW_DEVICE}.elf"
 SHA="${ELF}.sha256"
 
@@ -25,10 +39,20 @@ if [ ! -b "${ABL_A}" ] || [ ! -b "${ABL_B}" ]; then
   exit 1
 fi
 
-# ---- Download files ----
-echo "Downloading ABL for ${HW_DEVICE}..."
-wget -q "${BASE_URL}/${ELF}"
-wget -q "${BASE_URL}/${SHA}"
+# ---- Download release ----
+echo "Downloading release v${ABL_VERSION}..."
+curl -s -L -o "${ARCHIVE}" "${BASE_URL}/${ARCHIVE}"
+
+# ---- Extract ----
+echo "Extracting archive..."
+tar -xf "${ARCHIVE}"
+
+if [ ! -f "${DIR}/${ELF}" ] || [ ! -f "${DIR}/${SHA}" ]; then
+  echo "Error: required files not found for device ${HW_DEVICE}"
+  exit 1
+fi
+
+cd "${DIR}"
 
 # ---- Verify SHA256 ----
 echo "Verifying SHA256 checksum..."
